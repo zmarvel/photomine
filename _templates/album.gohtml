@@ -5,7 +5,7 @@
     </head>
     <body>
         {{ range .Photos }}
-        <img class="thumbnail" src="{{ .Path }} " alt="{{ .Description }}">
+        <a href="{{ .Path }}"><img class="thumbnail" src="{{ .Thumbnail }} " alt="{{ .Description }}"></a>
         {{ end }}
     </body>
 </html>
