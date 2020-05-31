@@ -15,3 +15,6 @@
 # vendor/
 
 photomine
+
+_albums/
+_build/

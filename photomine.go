@@ -45,16 +45,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to parse album template: %v", err)
 	}
+	_ = albumTemplate
 
 	// Create output directory
-	outputDir, err := os.Create(path.Join(siteRoot, "_build"))
+	outputPath := path.Join(siteRoot, "_build")
+	err = os.Mkdir(outputPath, 0755)
 	if err != nil {
 		log.Fatalf("Failed to create _build dir: %v", err)
 	}
-	_ = outputDir
 
 	// Walk albums dir and construct a list of albums
-	albumsDir, err := os.Open(path.Join(siteRoot, "_albums"))
+	albumsPath := path.Join(siteRoot, "_albums")
+	albumsDir, err := os.Open(albumsPath)
 	if err != nil {
 		log.Fatalf("Failed to open _albums dir: %v", err)
 	}
@@ -69,13 +71,19 @@ func main() {
 
 	for _, subdirPath := range albumPaths {
 		var album album
-		album.Name = path.Base(subdirPath)
-		album.Path = subdirPath
+		subdirAbsPath := path.Join(albumsPath, subdirPath)
+		album.Name = subdirPath
+		album.Path = subdirAbsPath
 		index.Albums = append(index.Albums, album)
 		// Don't populate Photos yet--not needed to build the index
 	}
 
 	// TODO expand index template
+	indexHTML, err := os.Create(path.Join(outputPath, "index.html"))
+	if err != nil {
+		log.Fatalf("Failed to create index output file: %v", err)
+	}
+	indexTemplate.Execute(indexHTML, index)
 
 	for _, album := range index.Albums {
 		albumDir, err := os.Open(album.Path)
