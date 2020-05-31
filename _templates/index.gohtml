@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+    <head>
+        <title>{{ .Title }}</title>
+    </head>
+    <body>
+        <ol>
+            {{ range .Albums }}
+            <li><a href="{{ .Path }} ">{{ .Name }}</a></li>
+            {{ end }}
+        </ol>
+    </body>
+</html>

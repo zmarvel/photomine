@@ -1,0 +1,11 @@
+<!doctype html>
+<html>
+    <head>
+        <title>album {{ .Name }}</title>
+    </head>
+    <body>
+        {{ range .Photos }}
+        <img class="thumbnail" src="{{ .Path }} " alt="{{ .Description }}">
+        {{ end }}
+    </body>
+</html>
