@@ -1,11 +1,11 @@
 <!doctype html>
 <html>
-    <head>
-        <title>album {{ .Name }}</title>
-    </head>
-    <body>
-        {{ range .Photos }}
-        <a href="{{ .Path }}"><img class="thumbnail" src="{{ .Thumbnail }} " alt="{{ .Description }}"></a>
-        {{ end }}
-    </body>
+  <head>
+    <title>album {{ .Name }}</title>
+  </head>
+  <body>
+    {{ range .Photos }}
+    <a href="{{ .Path }}"><img class="thumbnail" src="{{ .Thumbnail }} " alt="{{ .Description }}"></a>
+    {{ end }}
+  </body>
 </html>

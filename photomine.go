@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"sync"
 
 	"github.com/h2non/bimg"
@@ -16,6 +17,9 @@ type photo struct {
 	Path        string
 	Description string
 	Thumbnail   string
+	Page        string
+	Prev        string
+	Next        string
 	// TODO attributes (ISO, shutter speed, ...)
 }
 
@@ -68,7 +72,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to parse album template: %v", err)
 	}
-	_ = albumTemplate
+
+	photoTemplate, err := template.ParseFiles(path.Join(templatePath, "photo.gohtml"))
+	if err != nil {
+		log.Fatalf("Failed to parse photo template: %v", err)
+	}
 
 	// Create output directory
 	outputPath := path.Join(siteRoot, "_build")
@@ -108,7 +116,6 @@ func main() {
 		}
 
 		album.Name = subdirPath
-		// TODO relative path?
 		album.Path = subdirPath
 		index.Albums = append(index.Albums, album)
 		// Don't populate Photos yet--not needed to build the index
@@ -149,7 +156,12 @@ func main() {
 		err = os.Mkdir(path.Join(albumOutputPath, thumbDir), 0755)
 		for _, photoPath := range photoPaths {
 			thumbPath := path.Join(thumbDir, photoPath)
-			photo := photo{photoPath, photoPath, thumbPath}
+			var photo photo
+			photo.Description = photoPath
+			photo.Path = photoPath
+			photo.Thumbnail = thumbPath
+			parts := strings.Split(photo.Path, ".")
+			photo.Page = strings.Join(parts[0:len(parts)-1], ".") + ".html"
 			album.Photos = append(album.Photos, photo)
 		}
 		thumbWaitGroup.Add(1)
@@ -157,6 +169,26 @@ func main() {
 			defer thumbWaitGroup.Done()
 			album.createThumbs(albumOutputPath, thumbDims)
 		}()
+
+		// Build links between photos for next/previous links, and render photo page
+		for i, photo := range album.Photos {
+			if i > 0 {
+				photo.Prev = album.Photos[i-1].Page
+			}
+			if i < len(album.Photos)-1 {
+				photo.Next = album.Photos[i+1].Page
+			}
+
+			photoHTML, err := os.Create(path.Join(albumOutputPath, photo.Page))
+			if err != nil {
+				log.Fatalf("Failed to create photo page %s: %v", photo.Page, err)
+			}
+
+			err = photoTemplate.Execute(photoHTML, photo)
+			if err != nil {
+				log.Fatalf("Failed to execute photo template: %v", err)
+			}
+		}
 
 		albumIndexPath := path.Join(albumOutputPath, "index.html")
 		albumIndex, err := os.Create(albumIndexPath)
