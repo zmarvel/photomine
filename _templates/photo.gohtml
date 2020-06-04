@@ -5,16 +5,17 @@
     <style>
       img {
         margin: auto;
+        max-width: 95%;
+        max-height: 95%;
       }
 
       body {
         text-align: center;
       }
     </style>
-    <link rel="stylesheet" type="text/css" href="{{ .Stylesheet }}">
   </head>
   <body>
-    <img class="fullsize" src="{{ .Path }}" alt="{{ .Description }}">
+    <a href="{{ .Path }}"><img class="fullsize" src="{{ .Path }}" alt="{{ .Description }}"></a>
     <br>
     {{ if .Prev }}<a class="next-prev" href="{{ .Prev }}">Previous</a>{{ end }}
     /
