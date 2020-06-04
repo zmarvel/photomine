@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 
@@ -121,6 +122,10 @@ func main() {
 		// Don't populate Photos yet--not needed to build the index
 	}
 
+	sort.Slice(index.Albums, func(i, j int) bool {
+		return index.Albums[i].Name < index.Albums[j].Name
+	})
+
 	indexHTML, err := os.Create(path.Join(outputPath, "index.html"))
 	if err != nil {
 		log.Fatalf("Failed to create index output file: %v", err)
@@ -164,6 +169,9 @@ func main() {
 			photo.Page = strings.Join(parts[0:len(parts)-1], ".") + ".html"
 			album.Photos = append(album.Photos, photo)
 		}
+		sort.Slice(album.Photos, func(i, j int) bool {
+			return album.Photos[i].Path < album.Photos[j].Path
+		})
 		thumbWaitGroup.Add(1)
 		go func() {
 			defer thumbWaitGroup.Done()
