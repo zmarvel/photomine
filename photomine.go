@@ -52,8 +52,23 @@ type albumIndex struct {
 	Albums []album
 }
 
+type imageConfig struct {
+	Extensions []string
+}
+
 type config struct {
 	Title string
+	Image imageConfig
+}
+
+func (config *config) hasValidExt(filePath string) bool {
+	ext := strings.TrimPrefix(path.Ext(filePath), ".")
+	for _, validExt := range config.Image.Extensions {
+		if ext == validExt {
+			return true
+		}
+	}
+	return false
 }
 
 func loadConfig(path string) (config, error) {
@@ -73,6 +88,9 @@ func loadConfig(path string) (config, error) {
 func defaultConfig() config {
 	return config{
 		"photomine",
+		imageConfig{
+			[]string{},
+		},
 	}
 }
 
@@ -157,6 +175,7 @@ func main() {
 		// Don't populate Photos yet--not needed to build the index
 	}
 
+	// Sort albums by name
 	sort.Slice(index.Albums, func(i, j int) bool {
 		return index.Albums[i].Name < index.Albums[j].Name
 	})
@@ -195,14 +214,16 @@ func main() {
 		thumbDir := "thumb"
 		err = os.Mkdir(path.Join(albumOutputPath, thumbDir), 0755)
 		for _, photoPath := range photoPaths {
-			thumbPath := path.Join(thumbDir, photoPath)
-			var photo photo
-			photo.Description = photoPath
-			photo.Path = photoPath
-			photo.Thumbnail = thumbPath
-			parts := strings.Split(photo.Path, ".")
-			photo.Page = strings.Join(parts[0:len(parts)-1], ".") + ".html"
-			album.Photos = append(album.Photos, photo)
+			if config.hasValidExt(photoPath) {
+				thumbPath := path.Join(thumbDir, photoPath)
+				var photo photo
+				photo.Description = photoPath
+				photo.Path = photoPath
+				photo.Thumbnail = thumbPath
+				parts := strings.Split(photo.Path, ".")
+				photo.Page = strings.Join(parts[0:len(parts)-1], ".") + ".html"
+				album.Photos = append(album.Photos, photo)
+			}
 		}
 		sort.Slice(album.Photos, func(i, j int) bool {
 			return album.Photos[i].Path < album.Photos[j].Path
