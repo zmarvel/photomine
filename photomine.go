@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/burntsushi/toml"
 	"github.com/h2non/bimg"
 )
 
@@ -50,12 +52,45 @@ type albumIndex struct {
 	Albums []album
 }
 
+type config struct {
+	Title string
+}
+
+func loadConfig(path string) (config, error) {
+	var conf config
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return conf, err
+	}
+
+	if _, err := toml.Decode(string(data), &conf); err != nil {
+		return conf, err
+	}
+
+	return conf, nil
+}
+
+func defaultConfig() config {
+	return config{
+		"photomine",
+	}
+}
+
 func main() {
 	// Assume the site root is the current working directory.
 	// TODO accept an argument for this
 	siteRoot, err := os.Getwd()
 	if err != nil {
 		log.Fatalf("Failed to get current working directory: %v", err)
+	}
+
+	config, err := loadConfig(path.Join(siteRoot, "config.toml"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			config = defaultConfig()
+		} else {
+			log.Fatalf("Failed to load config: %v", err)
+		}
 	}
 
 	// Use fixed thumbnail scaling factor.
@@ -100,7 +135,7 @@ func main() {
 	}
 
 	var index albumIndex
-	index.Title = "photomine"
+	index.Title = config.Title
 
 	for _, subdirPath := range albumPaths {
 		var album album
