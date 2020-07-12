@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -12,40 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/burntsushi/toml"
 	"github.com/h2non/bimg"
 )
-
-type photo struct {
-	Path        string
-	Description string
-	Thumbnail   string
-	Page        string
-	Prev        string
-	Next        string
-	// TODO attributes (ISO, shutter speed, ...)
-}
-
-type album struct {
-	Name string
-	Path string
-	// TODO other metadata (location, time, ...)
-	Photos []photo
-}
-
-func (album *album) createThumbs(basePath string, thumbDims dims) error {
-	fmt.Printf("Creating thumbs for album %s in %s\n", album.Name, basePath)
-	for _, photo := range album.Photos {
-		photoPath := path.Join(basePath, photo.Path)
-		thumbPath := path.Join(basePath, photo.Thumbnail)
-		fmt.Printf("Photo: %s, Thumb: %s\n", photoPath, thumbPath)
-		err := createThumbnail(photoPath, thumbPath, thumbDims)
-		if err != nil {
-			log.Printf("Failed to create thumb %s: %v", thumbPath, err)
-		}
-	}
-	return nil
-}
 
 type albumIndex struct {
 	Title  string
@@ -54,44 +21,6 @@ type albumIndex struct {
 
 type imageConfig struct {
 	Extensions []string
-}
-
-type config struct {
-	Title string
-	Image imageConfig
-}
-
-func (config *config) hasValidExt(filePath string) bool {
-	ext := strings.TrimPrefix(path.Ext(filePath), ".")
-	for _, validExt := range config.Image.Extensions {
-		if ext == validExt {
-			return true
-		}
-	}
-	return false
-}
-
-func loadConfig(path string) (config, error) {
-	var conf config
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return conf, err
-	}
-
-	if _, err := toml.Decode(string(data), &conf); err != nil {
-		return conf, err
-	}
-
-	return conf, nil
-}
-
-func defaultConfig() config {
-	return config{
-		"photomine",
-		imageConfig{
-			[]string{},
-		},
-	}
 }
 
 func main() {

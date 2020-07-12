@@ -1,4 +1,6 @@
 github.com/burntsushi/toml v0.3.1 h1:XebFhzi1T+XmBZG9aKnQnA50YOydJUYK7g5SM40w+ik=
 github.com/burntsushi/toml v0.3.1/go.mod h1:tCq67G3LEDB9hykA6+KWl2FPEy0nPcvE8TTBhtOtdGs=
+github.com/dombenson/exif v0.0.0-20171108162907-16a8751b42af/go.mod h1:+pJkuQWJpm4LCetjqtcPJw5eNnzHMaHij4uyUA0E6iU=
 github.com/h2non/bimg v1.0.19 h1:lrKA2oi4DttnscGeb/oRiBIcRiAX33mmp3yQX8JzGIc=
 github.com/h2non/bimg v1.0.19/go.mod h1:R3+UiYwkK4rQl6KVFTOFJHitgLbZXBZNFh2cv3AEbp8=
+github.com/xiam/exif v0.0.0-20160817012543-33e82e3db72f/go.mod h1:TNQaD0DKTvoO9qWZ69kF4No3D3Fkd514B6uiVS6JeIY=
