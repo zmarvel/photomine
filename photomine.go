@@ -1,108 +1,37 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
 	"sort"
 	"strings"
 	"sync"
-
-	"github.com/burntsushi/toml"
-	"github.com/h2non/bimg"
 )
-
-type photo struct {
-	Path        string
-	Description string
-	Thumbnail   string
-	Page        string
-	Prev        string
-	Next        string
-	// TODO attributes (ISO, shutter speed, ...)
-}
-
-type album struct {
-	Name string
-	Path string
-	// TODO other metadata (location, time, ...)
-	Photos []photo
-}
-
-func (album *album) createThumbs(basePath string, thumbDims dims) error {
-	fmt.Printf("Creating thumbs for album %s in %s\n", album.Name, basePath)
-	for _, photo := range album.Photos {
-		photoPath := path.Join(basePath, photo.Path)
-		thumbPath := path.Join(basePath, photo.Thumbnail)
-		fmt.Printf("Photo: %s, Thumb: %s\n", photoPath, thumbPath)
-		err := createThumbnail(photoPath, thumbPath, thumbDims)
-		if err != nil {
-			log.Printf("Failed to create thumb %s: %v", thumbPath, err)
-		}
-	}
-	return nil
-}
 
 type albumIndex struct {
 	Title  string
 	Albums []album
 }
 
-type imageConfig struct {
-	Extensions []string
-}
-
-type config struct {
-	Title string
-	Image imageConfig
-}
-
-func (config *config) hasValidExt(filePath string) bool {
-	ext := strings.TrimPrefix(path.Ext(filePath), ".")
-	for _, validExt := range config.Image.Extensions {
-		if ext == validExt {
-			return true
-		}
-	}
-	return false
-}
-
-func loadConfig(path string) (config, error) {
-	var conf config
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return conf, err
-	}
-
-	if _, err := toml.Decode(string(data), &conf); err != nil {
-		return conf, err
-	}
-
-	return conf, nil
-}
-
-func defaultConfig() config {
-	return config{
-		"photomine",
-		imageConfig{
-			[]string{},
-		},
-	}
-}
-
 func main() {
 	// Assume the site root is the current working directory.
 	// TODO accept an argument for this
-	siteRoot, err := os.Getwd()
+	cwd, err := os.Getwd()
+
 	if err != nil {
 		log.Fatalf("Failed to get current working directory: %v", err)
 	}
 
-	config, err := loadConfig(path.Join(siteRoot, "config.toml"))
+	configPath := flag.String("config", "config.toml", "Path to config file")
+	flag.Parse()
+
+	log.Printf("Using config file at %s", *configPath)
+	config, err := loadConfig(*configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			config = defaultConfig()
@@ -111,37 +40,49 @@ func main() {
 		}
 	}
 
+	if config.BuildDir == "" {
+		config.BuildDir = path.Join(cwd, "_build")
+	}
+	log.Printf("Using build dir %s", config.BuildDir)
+
+	if config.AlbumDir == "" {
+		config.AlbumDir = path.Join(cwd, "_albums")
+	}
+	log.Printf("Using album dir %s", config.AlbumDir)
+
+	if config.TemplateDir == "" {
+		config.TemplateDir = path.Join(cwd, "_templates")
+	}
+	log.Printf("Using template dir %s", config.TemplateDir)
+
 	// Use fixed thumbnail scaling factor.
 	// TODO this should be made configurable.
 	thumbDims := dims{1920 / 8, 1080 / 8}
 
 	// Load templates
-	templatePath := path.Join(siteRoot, "_templates")
-	indexTemplate, err := template.ParseFiles(path.Join(templatePath, "index.gohtml"))
+	indexTemplate, err := template.ParseFiles(path.Join(config.TemplateDir, "index.gohtml"))
 	if err != nil {
 		log.Fatalf("Failed to parse index template: %v", err)
 	}
 
-	albumTemplate, err := template.ParseFiles(path.Join(templatePath, "album.gohtml"))
+	albumTemplate, err := template.ParseFiles(path.Join(config.TemplateDir, "album.gohtml"))
 	if err != nil {
 		log.Fatalf("Failed to parse album template: %v", err)
 	}
 
-	photoTemplate, err := template.ParseFiles(path.Join(templatePath, "photo.gohtml"))
+	photoTemplate, err := template.ParseFiles(path.Join(config.TemplateDir, "photo.gohtml"))
 	if err != nil {
 		log.Fatalf("Failed to parse photo template: %v", err)
 	}
 
 	// Create output directory
-	outputPath := path.Join(siteRoot, "_build")
-	err = os.Mkdir(outputPath, 0755)
-	if err != nil {
+	err = os.Mkdir(config.BuildDir, 0755)
+	if err != nil && !os.IsExist(err) {
 		log.Fatalf("Failed to create _build dir: %v", err)
 	}
 
 	// Walk albums dir and construct a list of albums
-	albumsPath := path.Join(siteRoot, "_albums")
-	albumsDir, err := os.Open(albumsPath)
+	albumsDir, err := os.Open(config.AlbumDir)
 	if err != nil {
 		log.Fatalf("Failed to open _albums dir: %v", err)
 	}
@@ -155,9 +96,10 @@ func main() {
 	var index albumIndex
 	index.Title = config.Title
 
+	// Load albums
 	for _, subdirPath := range albumPaths {
 		var album album
-		subdirAbsPath := path.Join(albumsPath, subdirPath)
+		subdirAbsPath := path.Join(config.AlbumDir, subdirPath)
 		info, err := os.Stat(subdirAbsPath)
 		if err != nil {
 			log.Printf("Failed to stat %s: %v", subdirAbsPath, err)
@@ -180,21 +122,20 @@ func main() {
 		return index.Albums[i].Name < index.Albums[j].Name
 	})
 
-	indexHTML, err := os.Create(path.Join(outputPath, "index.html"))
+	indexHTML, err := os.Create(path.Join(config.BuildDir, "index.html"))
 	if err != nil {
 		log.Fatalf("Failed to create index output file: %v", err)
 	}
 	defer indexHTML.Close()
 	indexTemplate.Execute(indexHTML, index)
-
 	var thumbWaitGroup sync.WaitGroup
 	for _, album := range index.Albums {
 		// log.Printf("Album path %s", album.Path)
-		albumOutputPath := path.Join(outputPath, album.Path)
+		albumOutputPath := path.Join(config.BuildDir, album.Path)
 
 		// Copy the images into the output directory
 		// TODO maybe allow filtering by filename
-		inputDir := path.Join(albumsPath, album.Path)
+		inputDir := path.Join(config.AlbumDir, album.Path)
 		if err = copyDir(inputDir, albumOutputPath); err != nil {
 			log.Fatalf("Failed to copy images: %v", err)
 		}
@@ -212,10 +153,15 @@ func main() {
 
 		// Create thumbnails directory
 		thumbDir := "thumb"
-		err = os.Mkdir(path.Join(albumOutputPath, thumbDir), 0755)
+		thumbFullDir := path.Join(albumOutputPath, thumbDir)
+		err = os.Mkdir(thumbFullDir, 0755)
+		if err != nil && !os.IsExist(err) {
+			log.Fatalf("Failed to create thumbnail directory %s: %v", thumbFullDir, err)
+		}
+
 		for _, photoPath := range photoPaths {
 			if config.hasValidExt(photoPath) {
-				thumbPath := path.Join(thumbDir, photoPath)
+				thumbPath := path.Join(thumbDir, path.Base(photoPath))
 				var photo photo
 				photo.Description = photoPath
 				photo.Path = photoPath
@@ -331,36 +277,4 @@ func copyDir(fromPath string, toPath string) error {
 type dims struct {
 	Width  int
 	Height int
-}
-
-func createThumbnail(fromPath string, thumbPath string, thumbDims dims) error {
-	buf, err := bimg.Read(fromPath)
-	if err != nil {
-		return err
-	}
-
-	fullSize := bimg.NewImage(buf)
-	origSize, err := fullSize.Size()
-	if err != nil {
-		return err
-	}
-
-	// Assume thumbDims.Width > thumbDims.Height
-	var thumbImg []byte
-	if origSize.Width > origSize.Height {
-		// Horizontal orientation
-		thumbImg, err = fullSize.Resize(thumbDims.Width, thumbDims.Height)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Vertical orientation
-		thumbImg, err = fullSize.Resize(thumbDims.Height, thumbDims.Width)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = bimg.Write(thumbPath, thumbImg)
-	return err
 }
