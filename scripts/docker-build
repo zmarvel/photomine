@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -u -e -o pipefail
+
+if [[ ! -f Dockerfile ]]; then
+    echo "This script should be run from the repository root"
+    exit 1
+fi
+
+BRANCH=$(git branch --show-current)
+docker build --build-arg BRANCH="$BRANCH" -t "photomine:$BRANCH" - < Dockerfile
