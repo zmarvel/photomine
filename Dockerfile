@@ -8,8 +8,12 @@ FROM photomine-base as build
 
 RUN apt install -y libvips-dev golang git
 
+# Using the commit here is kind of a hack--it will force a rebuild when a new commit is made.
+ARG COMMIT
 ARG BRANCH
-RUN git clone -b $BRANCH https://git.zackmarvel.com/zack/photomine.git /src && \
+COPY ./ /workingtree/
+# RUN git clone -b $BRANCH https://git.zackmarvel.com/zack/photomine.git /src && \
+RUN git clone -b $BRANCH /workingtree /src && \
     cd /src && \
     go install
 
